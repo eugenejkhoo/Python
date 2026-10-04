@@ -1,0 +1,80 @@
+# 0DTE bot configuration. Every value here has a sensible default; delete
+# anything you do not want to override.
+
+mode = "paper"          # "paper" (simulated fills) or "alpaca" (route real orders)
+feed = "sim"            # "sim" (synthetic), "yfinance" (delayed real bars) or "csv"
+# csv_path = "data/bars.csv"
+state_dir = "state"
+dashboard_port = 8080
+sim_seed = 7
+
+[[symbols]]
+symbol = "SPY"
+strike_increment = 1.0
+implied_vol = 0.16
+sim_start_price = 570.0
+
+[[symbols]]
+symbol = "QQQ"
+strike_increment = 1.0
+implied_vol = 0.21
+sim_start_price = 490.0
+
+[[symbols]]
+symbol = "IWM"
+strike_increment = 1.0
+implied_vol = 0.24
+sim_start_price = 225.0
+
+# --- the "OG" strategy: any single trigger is enough ------------------------
+[[strategies]]
+name = "og"
+strike_offset = 0        # 0 = at the money
+[strategies.risk]
+contracts = 1
+profit_lock = 400.0      # stop entering for the day after +$400 realized
+daily_max_loss = -300.0
+take_profit_pct = 0.50
+stop_loss_pct = 0.35
+auto_exit_minutes = 30
+flatten_minutes_before_close = 10
+no_entry_minutes_before_close = 45
+max_trades_per_day = 6
+cooldown_minutes = 3
+
+# --- the "trending" strategy: trigger + VWAP, EMA and OR all agreeing ------
+[[strategies]]
+name = "trending"
+strike_offset = 0
+[strategies.risk]
+contracts = 2
+profit_lock = 600.0
+daily_max_loss = -400.0
+take_profit_pct = 0.60
+stop_loss_pct = 0.35
+auto_exit_minutes = 45
+flatten_minutes_before_close = 10
+no_entry_minutes_before_close = 45
+max_trades_per_day = 4
+cooldown_minutes = 5
+
+[signals]
+ema_period = 50
+opening_range_minutes = 15
+min_bars = 20
+chop_lookback = 20
+chop_max_vwap_crosses = 3
+chop_min_atr_distance = 0.25
+atr_period = 14
+
+[paper]
+starting_cash = 25000.0
+commission_per_contract = 0.65
+spread_pct = 0.04
+min_spread = 0.02
+risk_free_rate = 0.045
+
+[alpaca]
+paper = true
+key_env = "ALPACA_API_KEY"
+secret_env = "ALPACA_API_SECRET"

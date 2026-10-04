@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0DTE Bot Desk</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface: #fcfcfb; --surface-2: #f3f2ef; --border: #e4e3de;
+    --text: #0b0b0b; --text-2: #52514e; --text-3: #8a8985;
+    --accent: #2a78d6; --accent-wash: rgba(42,120,214,.10);
+    --good: #0ca30c; --warn: #fab219; --serious: #ec835a; --critical: #d03b3b;
+    --bull: #2a78d6; --bear: #eb6834;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --surface: #1a1a19; --surface-2: #242423; --border: #333331;
+      --text: #ffffff; --text-2: #c3c2b7; --text-3: #8f8e88;
+      --accent: #3987e5; --accent-wash: rgba(57,135,229,.12);
+      --bull: #3987e5; --bear: #d95926;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface: #1a1a19; --surface-2: #242423; --border: #333331;
+    --text: #ffffff; --text-2: #c3c2b7; --text-3: #8f8e88;
+    --accent: #3987e5; --accent-wash: rgba(57,135,229,.12);
+    --bull: #3987e5; --bear: #d95926;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surface); color: var(--text);
+    font: 14px/1.45 -apple-system, "Segoe UI", Inter, Roboto, sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin-bottom: 18px; }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  .meta { color: var(--text-2); font-size: 13px; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border);
+    font-size: 12px; color: var(--text-2); }
+  .pill.on::before { content: "●"; color: var(--good); margin-right: 5px; }
+  .pill.off::before { content: "●"; color: var(--text-3); margin-right: 5px; }
+  .grid { display: grid; gap: 14px; align-items: start; }
+  .tiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; min-width: 0; overflow-x: auto; }
+  .tile .label { color: var(--text-2); font-size: 12px; }
+  .tile .value { font-size: 22px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .tile.hero .value { font-size: 48px; line-height: 1.1; }
+  .delta { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+  .delta .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  .two { grid-template-columns: 3fr 2fr; }
+  @media (max-width: 820px) { .two { grid-template-columns: 1fr; } }
+  h2 { font-size: 13px; font-weight: 600; color: var(--text-2); margin: 0 0 10px; text-transform: uppercase; letter-spacing: .04em; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--text-2); font-weight: 500; font-size: 12px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: 0; }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; border: 1px solid var(--border); color: var(--text-2); }
+  .tag.holding { border-color: var(--accent); color: var(--text); }
+  .tag.locked { border-color: var(--warn); }
+  .scan { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .sym { display: flex; justify-content: space-between; align-items: baseline; }
+  .sym b { font-size: 16px; }
+  .meter { margin-top: 8px; }
+  .meter .row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); margin: 3px 0; }
+  .meter .row span:first-child { width: 36px; }
+  .meter .track { flex: 1; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+  .meter .fill { height: 100%; border-radius: 4px; }
+  .meter .fill.bull { background: var(--bull); }
+  .meter .fill.bear { background: var(--bear); }
+  .meter .row span:last-child { width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+  .levels { font-size: 12px; color: var(--text-2); margin-top: 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; }
+  .chop { color: var(--serious); }
+  .trig { font-size: 12px; color: var(--text); margin-top: 6px; min-height: 16px; }
+  svg { width: 100%; height: 190px; display: block; }
+  .axis { stroke: var(--border); stroke-width: 1; }
+  .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .area { fill: var(--accent-wash); }
+  .tick { font-size: 11px; fill: var(--text-3); }
+  .cross { stroke: var(--text-3); stroke-width: 1; }
+  .tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 8px; font-size: 12px; color: var(--text); display: none; }
+  .wrap { position: relative; }
+  .empty { color: var(--text-3); font-size: 13px; padding: 10px 0; }
+  .err { color: var(--critical); }
+  .foot { margin-top: 20px; color: var(--text-3); font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>0DTE Bot Desk</h1>
+    <span id="market" class="pill off">market closed</span>
+    <span id="mode" class="pill">paper</span>
+    <span id="updated" class="meta"></span>
+    <span id="error" class="meta err"></span>
+  </header>
+
+  <section class="grid tiles">
+    <div class="card tile hero"><div class="label">Total profit</div><div id="total" class="value">—</div><div id="totalDelta" class="delta"></div></div>
+    <div class="card tile"><div class="label">Today</div><div id="today" class="value">—</div><div id="unreal" class="delta"></div></div>
+    <div class="card tile"><div class="label">Trades</div><div id="trades" class="value">—</div><div id="winrate" class="delta"></div></div>
+    <div class="card tile"><div class="label">Profit factor</div><div id="pf" class="value">—</div><div id="days" class="delta"></div></div>
+    <div class="card tile"><div class="label">Cash</div><div id="cash" class="value">—</div><div id="open" class="delta"></div></div>
+  </section>
+
+  <section class="grid two">
+    <div class="card wrap">
+      <h2>Cumulative P&amp;L</h2>
+      <svg id="curve" viewBox="0 0 720 190" preserveAspectRatio="none"></svg>
+      <div id="tip" class="tip"></div>
+    </div>
+    <div class="card">
+      <h2>Leaderboard</h2>
+      <table><thead><tr><th>#</th><th>Bot</th><th class="num">Today</th><th class="num">Total</th><th class="num">Win</th><th>State</th></tr></thead>
+      <tbody id="board"></tbody></table>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <h2>Signal scanner</h2>
+    <div id="scanner" class="scan"></div>
+  </section>
+
+  <section class="grid two" style="margin-top:14px">
+    <div class="card">
+      <h2>Open positions</h2>
+      <table><thead><tr><th>Bot</th><th>Contract</th><th class="num">Qty</th><th class="num">Entry</th><th class="num">Bid</th><th class="num">P&amp;L</th></tr></thead>
+      <tbody id="positions"></tbody></table>
+      <div id="noPositions" class="empty">No open positions.</div>
+    </div>
+    <div class="card">
+      <h2>Recent trades</h2>
+      <table><thead><tr><th>Exit</th><th>Bot</th><th>Contract</th><th class="num">P&amp;L</th><th>Reason</th></tr></thead>
+      <tbody id="recent"></tbody></table>
+      <div id="noTrades" class="empty">No closed trades yet.</div>
+    </div>
+  </section>
+
+  <p class="foot">Rule-based bots. Paper results are simulated fills against a model price and do not represent real trading results.</p>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const money = (v) => v == null ? "—" : (v < 0 ? "-" : "") + "$" + Math.abs(v).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0});
+const money2 = (v) => v == null ? "—" : (v < 0 ? "-" : "") + "$" + Math.abs(v).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const pct = (v) => v == null ? "—" : Math.round(v * 100) + "%";
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const TZ = {timeZone: "America/New_York"};
+const hhmm = (iso) => iso ? new Date(iso).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", ...TZ}) : "";
+const fullTs = (iso) => new Date(iso).toLocaleString([], {...TZ, timeZoneName: "short"});
+const signColor = (v) => v > 0 ? "var(--good)" : v < 0 ? "var(--critical)" : "var(--text-3)";
+
+let curvePts = [];
+
+function render(s) {
+  if (s.error) { $("error").textContent = s.error; return; }
+  $("error").textContent = "";
+  $("market").textContent = s.market_open ? "market open" : "market closed";
+  $("market").className = "pill " + (s.market_open ? "on" : "off");
+  $("mode").textContent = s.mode + " · " + s.feed;
+  $("updated").textContent = "updated " + fullTs(s.updated);
+
+  $("total").textContent = money(s.total_pnl);
+  $("totalDelta").innerHTML = `<span class="dot" style="background:${signColor(s.total_pnl)}"></span>${(s.stats.days||0)} trading day${s.stats.days===1?"":"s"}`;
+  $("today").textContent = money(s.day_pnl);
+  $("unreal").textContent = "open " + money2(s.unrealized) + " unrealized";
+  $("trades").textContent = s.stats.trades;
+  $("winrate").textContent = "win rate " + pct(s.stats.win_rate);
+  $("pf").textContent = s.stats.profit_factor == null ? "∞" : s.stats.profit_factor;
+  $("days").textContent = "avg win " + money(s.stats.avg_win) + " · avg loss " + money(s.stats.avg_loss);
+  $("cash").textContent = s.cash == null ? "live" : money(s.cash);
+  $("open").textContent = s.open_positions.length + " open position" + (s.open_positions.length===1?"":"s");
+
+  $("board").innerHTML = s.leaderboard.map((b, i) => `
+    <tr><td>${i+1}</td><td>${esc(b.name)}</td>
+      <td class="num">${money(b.day_pnl)}</td><td class="num">${money(b.total_pnl)}</td>
+      <td class="num">${pct(b.win_rate)}</td>
+      <td><span class="tag ${b.state}" title="${esc(b.last_action)}">${b.state}</span></td></tr>`).join("");
+
+  $("scanner").innerHTML = s.scanner.map(x => {
+    const bull = Math.round((x.strength_bull||0)*100), bear = Math.round((x.strength_bear||0)*100);
+    const bias = x.bias || {};
+    const arrow = (v) => v > 0 ? "▲" : v < 0 ? "▼" : "–";
+    return `<div class="card">
+      <div class="sym"><b>${esc(x.symbol)}</b><span>${x.price != null ? x.price.toFixed(2) : "—"}</span></div>
+      <div class="meter">
+        <div class="row"><span>Buy</span><div class="track"><div class="fill bull" style="width:${bull}%"></div></div><span>${bull}</span></div>
+        <div class="row"><span>Sell</span><div class="track"><div class="fill bear" style="width:${bear}%"></div></div><span>${bear}</span></div>
+      </div>
+      <div class="levels">
+        <span>VWAP ${x.vwap != null ? x.vwap.toFixed(2) : "—"} ${arrow(bias.vwap)}</span>
+        <span>EMA50 ${x.ema != null ? x.ema.toFixed(2) : "—"} ${arrow(bias.ema)}</span>
+        <span>OR high ${x.or_high != null ? x.or_high.toFixed(2) : "—"}</span>
+        <span>OR low ${x.or_low != null ? x.or_low.toFixed(2) : "—"} ${arrow(bias.orb)}</span>
+      </div>
+      <div class="trig">${x.choppy ? `<span class="chop">⚠ chop: ${esc(x.chop_reason)}</span>` : (x.triggers && x.triggers.length ? "⚡ " + esc(x.triggers.join(", ")) : (x.ready ? "no trigger" : "warming up"))}</div>
+    </div>`;
+  }).join("");
+
+  const pos = s.open_positions;
+  $("positions").innerHTML = pos.map(p => `
+    <tr><td>${esc(p.bot)}</td><td>${esc(p.contract.symbol)}</td><td class="num">${p.qty}</td>
+      <td class="num">${p.entry_price.toFixed(2)}</td><td class="num">${p.bid != null ? p.bid.toFixed(2) : "—"}</td>
+      <td class="num">${money2(p.unrealized)}</td></tr>`).join("");
+  $("noPositions").style.display = pos.length ? "none" : "";
+
+  const rt = s.recent_trades;
+  $("recent").innerHTML = rt.map(t => `
+    <tr><td>${hhmm(t.exit_ts)}</td><td>${esc(t.bot)}</td><td>${esc(t.contract)}</td>
+      <td class="num">${money2(t.pnl)}</td><td>${esc(t.exit_reason)}</td></tr>`).join("");
+  $("noTrades").style.display = rt.length ? "none" : "";
+
+  drawCurve(s.equity_curve);
+}
+
+function drawCurve(pts) {
+  curvePts = pts;
+  const svg = $("curve");
+  const W = 720, H = 190, L = 44, R = 10, T = 10, B = 22;
+  if (!pts || pts.length < 2) { svg.innerHTML = `<text class="tick" x="${L}" y="${H/2}">Equity curve appears after the first two closed trades.</text>`; return; }
+  const ys = pts.map(p => p[1]);
+  let lo = Math.min(0, ...ys), hi = Math.max(0, ...ys);
+  if (hi === lo) hi = lo + 1;
+  const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+  const x = (i) => L + (i / (pts.length - 1)) * (W - L - R);
+  const y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+  const path = pts.map((p, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(p[1]).toFixed(1)).join(" ");
+  const area = path + ` L${x(pts.length-1).toFixed(1)} ${y(0).toFixed(1)} L${x(0).toFixed(1)} ${y(0).toFixed(1)} Z`;
+  const ticks = [lo + pad, 0, hi - pad].filter((v, i, a) => a.indexOf(v) === i);
+  svg.innerHTML =
+    ticks.map(v => `<line class="axis" x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}"/><text class="tick" x="${L-6}" y="${y(v)+4}" text-anchor="end">${money(v)}</text>`).join("") +
+    `<path class="area" d="${area}"/><path class="line" d="${path}"/>` +
+    `<circle r="4" cx="${x(pts.length-1)}" cy="${y(ys[ys.length-1])}" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>` +
+    `<text class="tick" x="${L}" y="${H-6}">${hhmm(pts[0][0])}</text><text class="tick" x="${W-R}" y="${H-6}" text-anchor="end">${hhmm(pts[pts.length-1][0])}</text>` +
+    `<line id="cross" class="cross" y1="${T}" y2="${H-B}" x1="-10" x2="-10"/>`;
+  svg.onmousemove = (ev) => {
+    const r = svg.getBoundingClientRect();
+    const i = Math.round(((ev.clientX - r.left) / r.width * W - L) / (W - L - R) * (pts.length - 1));
+    if (i < 0 || i >= pts.length) return;
+    const c = $("cross"); c.setAttribute("x1", x(i)); c.setAttribute("x2", x(i));
+    const tip = $("tip"); tip.style.display = "block";
+    tip.style.left = Math.min(ev.clientX - r.left + 12, r.width - 140) + "px"; tip.style.top = (ev.clientY - r.top - 10) + "px";
+    tip.textContent = fullTs(pts[i][0]) + " · " + money2(pts[i][1]);
+  };
+  svg.onmouseleave = () => { $("tip").style.display = "none"; const c = $("cross"); if (c) { c.setAttribute("x1", -10); c.setAttribute("x2", -10); } };
+}
+
+async function poll() {
+  try {
+    const r = await fetch("/api/state", {cache: "no-store"});
+    render(await r.json());
+  } catch (e) { $("error").textContent = "dashboard: " + e; }
+  setTimeout(poll, 2000);
+}
+poll();
+</script>
+</body>
+</html>

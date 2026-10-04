@@ -1,0 +1,8 @@
+# Core engine, paper broker, dashboard and backtester use only the standard library.
+pytest>=8.0
+
+# Optional: live 1-minute bars from Yahoo Finance (feed = "yfinance")
+yfinance>=0.2.40
+
+# Optional: live/paper order routing through Alpaca (broker = "alpaca")
+requests>=2.31
