@@ -69,7 +69,7 @@
   <span id="mode" class="pill">paper</span>
   <span id="clock" class="pill">—</span>
   <span id="err" class="pill" style="display:none"></span>
-  <a href="/" class="pill" style="margin-left:auto">Desk view →</a>
+  <a id="deskLink" href="/" class="pill" style="margin-left:auto">Desk view →</a>
 </div>
 <div id="panel" class="hud">
   <h2>Payroll · leaderboard</h2>
@@ -324,7 +324,7 @@ function render(s) {
   if (s.error) { $("err").style.display = ""; $("err").textContent = s.error; return; }
   $("err").style.display = "none";
   $("market").textContent = s.market_open ? "market open" : "market closed"; $("market").className = "pill " + (s.market_open ? "on" : "off");
-  $("mode").textContent = s.mode + " · " + s.feed;
+  $("mode").textContent = s.mode + " · " + s.feed + (EMBEDDED ? " · snapshot" : "");
   $("clock").textContent = new Date(s.updated).toLocaleString([], {...TZ, timeZoneName: "short"});
   layout(s);
   for (const b of s.leaderboard) labelFor(b.name).innerHTML = labelText(b);
@@ -340,7 +340,10 @@ function render(s) {
   // payroll panel
   $("board").innerHTML = s.leaderboard.map((b, i) => `<tr><td>${i + 1}</td><td>${esc(b.name)}</td><td class="num">${money(b.day_pnl)}</td><td class="num">${money(b.total_pnl)}</td><td class="num">${Math.round(b.win_rate * 100)}%</td></tr>`).join("");
 }
-async function poll() { try { const r = await fetch("/api/state", {cache: "no-store"}); render(await r.json()); } catch (e) { $("err").style.display = ""; $("err").textContent = "dashboard: " + e; } setTimeout(poll, 2000); }
+const EMBEDDED = window.__ZDTE_STATE__ || null;
+const LINKS = window.__ZDTE_LINKS__ || {};
+if (LINKS.desk) document.getElementById("deskLink").href = LINKS.desk;
+async function poll() { if (EMBEDDED) { render(EMBEDDED); return; } try { const r = await fetch("/api/state", {cache: "no-store"}); render(await r.json()); } catch (e) { $("err").style.display = ""; $("err").textContent = "dashboard: " + e; } setTimeout(poll, 2000); }
 poll(); requestAnimationFrame(frame);
 </script>
 </body>

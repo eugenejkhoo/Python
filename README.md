@@ -103,6 +103,17 @@ http://localhost:8080/city is the same state drawn as an isometric
 Drag to rotate, wheel to zoom. The desk view and the city view link to
 each other.
 
+### Sharing a snapshot (phone, email, static hosting)
+
+```bash
+python -m zdte export --out export/
+```
+
+writes `export/desk.html` and `export/city.html` with the current
+`state/state.json` baked in. They need no server and no network, so you
+can open them on a phone or host them anywhere static. Each page shows the
+moment it was exported and does not poll.
+
 ## Paper trading on real (delayed) data
 
 ```bash

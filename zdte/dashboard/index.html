@@ -95,7 +95,7 @@
     <span id="mode" class="pill">paper</span>
     <span id="updated" class="meta"></span>
     <span id="error" class="meta err"></span>
-    <a href="/city" class="pill" style="margin-left:auto;text-decoration:none">3D city view →</a>
+    <a id="cityLink" href="/city" class="pill" style="margin-left:auto;text-decoration:none">3D city view →</a>
   </header>
 
   <section class="grid tiles">
@@ -160,7 +160,7 @@ function render(s) {
   $("error").textContent = "";
   $("market").textContent = s.market_open ? "market open" : "market closed";
   $("market").className = "pill " + (s.market_open ? "on" : "off");
-  $("mode").textContent = s.mode + " · " + s.feed;
+  $("mode").textContent = s.mode + " · " + s.feed + (EMBEDDED ? " · snapshot" : "");
   $("updated").textContent = "updated " + fullTs(s.updated);
 
   $("total").textContent = money(s.total_pnl);
@@ -248,7 +248,11 @@ function drawCurve(pts) {
   svg.onmouseleave = () => { $("tip").style.display = "none"; const c = $("cross"); if (c) { c.setAttribute("x1", -10); c.setAttribute("x2", -10); } };
 }
 
+const EMBEDDED = window.__ZDTE_STATE__ || null;
+const LINKS = window.__ZDTE_LINKS__ || {};
+if (LINKS.city) document.getElementById("cityLink").href = LINKS.city;
 async function poll() {
+  if (EMBEDDED) { render(EMBEDDED); return; }
   try {
     const r = await fetch("/api/state", {cache: "no-store"});
     render(await r.json());

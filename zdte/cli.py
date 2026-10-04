@@ -3,6 +3,7 @@
     python -m zdte run        [--config config.toml] [--sim] [--speed N] [--dashboard]
     python -m zdte backtest   [--config config.toml] [--days N | --start --end] [--csv file]
     python -m zdte dashboard  [--config config.toml] [--port 8080]
+    python -m zdte export     [--state state/state.json] [--out export/]
     python -m zdte fetch      --symbols SPY,QQQ,IWM --days 5 --out data/bars.csv
 """
 from __future__ import annotations
@@ -107,6 +108,21 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export(args: argparse.Namespace) -> int:
+    """Bake state/state.json into standalone dashboard pages."""
+    import json
+    from zdte.dashboard.export import export_snapshot
+    cfg = _load(args.config)
+    state_path = Path(args.state or Path(cfg.state_dir) / "state.json")
+    if not state_path.exists():
+        print(f"{state_path} not found; run the engine first", file=sys.stderr)
+        return 2
+    written = export_snapshot(json.loads(state_path.read_text()), args.out)
+    for name, path in written.items():
+        print(f"{name}: {path}")
+    return 0
+
+
 def cmd_fetch(args: argparse.Namespace) -> int:
     """Download recent 1-minute bars with yfinance into the CSV feed format."""
     try:
@@ -169,6 +185,11 @@ def build_parser() -> argparse.ArgumentParser:
     d = sub.add_parser("dashboard", help="serve the dashboard from state/state.json")
     d.add_argument("--port", type=int)
     d.set_defaults(func=cmd_dashboard)
+
+    e = sub.add_parser("export", help="write standalone dashboard pages with the current state baked in")
+    e.add_argument("--state", help="state.json to export (default: <state_dir>/state.json)")
+    e.add_argument("--out", default="export", help="output directory")
+    e.set_defaults(func=cmd_export)
 
     f = sub.add_parser("fetch", help="download 1-minute bars to CSV via yfinance")
     f.add_argument("--symbols", default="SPY,QQQ,IWM")
