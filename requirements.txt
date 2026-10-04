@@ -6,3 +6,6 @@ yfinance>=0.2.40
 
 # Optional: live/paper order routing through Alpaca (broker = "alpaca")
 requests>=2.31
+
+# Optional: Interactive Brokers via IB Gateway (ibkr-check, and the broker/feed in Phase 1)
+ib_async>=2.0

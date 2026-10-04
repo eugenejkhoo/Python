@@ -4,6 +4,7 @@
     python -m zdte backtest   [--config config.toml] [--days N | --start --end] [--csv file]
     python -m zdte dashboard  [--config config.toml] [--port 8080]
     python -m zdte export     [--state state/state.json] [--out export/]
+    python -m zdte ibkr-check [--host 127.0.0.1] [--port 4002] [--client-id 7]
     python -m zdte fetch      --symbols SPY,QQQ,IWM --days 5 --out data/bars.csv
 """
 from __future__ import annotations
@@ -123,6 +124,11 @@ def cmd_export(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ibkr_check(args: argparse.Namespace) -> int:
+    from zdte.ibkr_check import main as check
+    return check(args.host, args.port, args.client_id)
+
+
 def cmd_fetch(args: argparse.Namespace) -> int:
     """Download recent 1-minute bars with yfinance into the CSV feed format."""
     try:
@@ -190,6 +196,12 @@ def build_parser() -> argparse.ArgumentParser:
     e.add_argument("--state", help="state.json to export (default: <state_dir>/state.json)")
     e.add_argument("--out", default="export", help="output directory")
     e.set_defaults(func=cmd_export)
+
+    k = sub.add_parser("ibkr-check", help="verify IB Gateway connectivity, account, quotes and option chain")
+    k.add_argument("--host", default="127.0.0.1")
+    k.add_argument("--port", type=int, default=4002, help="4002 = paper gateway, 4001 = live gateway, 7497/7496 = TWS")
+    k.add_argument("--client-id", type=int, default=7)
+    k.set_defaults(func=cmd_ibkr_check)
 
     f = sub.add_parser("fetch", help="download 1-minute bars to CSV via yfinance")
     f.add_argument("--symbols", default="SPY,QQQ,IWM")

@@ -11,6 +11,7 @@ dependencies = []
 
 [project.optional-dependencies]
 live = ["yfinance>=0.2.40", "requests>=2.31"]
+ibkr = ["ib_async>=2.0"]
 dev = ["pytest>=8.0"]
 
 [project.scripts]
