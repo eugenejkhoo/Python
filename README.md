@@ -85,6 +85,24 @@ Open http://localhost:8080/ for the dashboard. It polls `state/state.json`
 
 Run the dashboard separately from the engine with `python -m zdte dashboard`.
 
+### The city view
+
+http://localhost:8080/city is the same state drawn as an isometric
+"bot city" (no external libraries, plain Canvas 2D):
+
+* every bot is a **tower** whose height follows its total P&L; losing bots
+  glow red,
+* a tower **beams light** while it holds a position (blue for a call,
+  orange for a put) and its label shows the open return,
+* the **treasury** in the middle totals profit across all trading days; tap
+  it for the payroll (leaderboard),
+* **chart billboards** around the ring show each symbol's 1-minute closes
+  with VWAP, EMA50 and the opening-range lines, plus chop and trigger flags,
+* the bottom strip shows **daily P&L** and a ticker of recent exits.
+
+Drag to rotate, wheel to zoom. The desk view and the city view link to
+each other.
+
 ## Paper trading on real (delayed) data
 
 ```bash
@@ -134,7 +152,7 @@ zdte/
   ledger.py       JSONL trade log and P&L views
   data/feeds.py   SimulatedFeed, CSVFeed, YFinanceFeed
   broker/         Broker interface, PaperBroker, AlpacaBroker
-  dashboard/      stdlib HTTP server + single-page dashboard
+  dashboard/      stdlib HTTP server + desk view (index.html) + city view (city.html)
 tests/            pytest suite covering every module
 config.toml       example configuration
 ```

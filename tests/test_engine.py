@@ -41,6 +41,9 @@ def test_full_simulated_session_trades_and_flattens(tmp_path):
     assert {b["name"] for b in state["leaderboard"]} == {b.name for b in eng.bots}
     assert state["leaderboard"] == sorted(state["leaderboard"], key=lambda b: (b["total_pnl"], b["day_pnl"]), reverse=True)
     assert [s["symbol"] for s in state["scanner"]] == ["SPY", "QQQ"]
+    assert set(state["charts"]) == {"SPY", "QQQ"}
+    ch = state["charts"]["SPY"]
+    assert len(ch["close"]) == len(ch["vwap"]) == len(ch["ema"]) == len(ch["ts"]) == 120
     assert (tmp_path / "state" / "trades.jsonl").exists()
 
     # the ledger reloads from disk

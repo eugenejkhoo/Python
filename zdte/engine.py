@@ -23,6 +23,7 @@ from zdte.clock import (Clock, RealClock, floor_minute, in_session, is_trading_d
 from zdte.config import EngineConfig
 from zdte.data.feeds import MarketDataFeed, make_feed
 from zdte.ledger import Ledger
+from zdte.indicators import ema_series, vwap_series
 from zdte.signals import Signal, evaluate
 from zdte.strategies import make_strategy
 
@@ -69,6 +70,8 @@ class Engine:
                     self.bots.append(Bot(sym, strat, make_strategy(strat.name), self.broker, self.ledger))
         self.signals: dict[str, Signal] = {}
         self.spots: dict[str, float] = {}
+        self.series: dict[str, dict] = {}
+        self.chart_bars = 120
         self._snapshot: dict = {}
         self._lock = threading.Lock()
         self.ticks = 0
@@ -86,6 +89,7 @@ class Engine:
             sig = evaluate(candles, open_ts, self.cfg.signals)
             self.signals[sym.symbol] = sig
             self.spots[sym.symbol] = spot
+            self.series[sym.symbol] = self._chart_series(candles)
             for bot in self.bots:
                 if bot.symbol == sym.symbol:
                     try:
@@ -94,6 +98,19 @@ class Engine:
                         log.exception("%s: tick failed", bot.name)
         self.ticks += 1
         self.refresh_snapshot(now)
+
+    def _chart_series(self, candles) -> dict:
+        """Last ``chart_bars`` closes with VWAP and EMA for the dashboard charts."""
+        n = self.chart_bars
+        closes = [c.close for c in candles]
+        vw = vwap_series(candles)
+        em = ema_series(closes, self.cfg.signals.ema_period)
+        return {
+            "ts": [c.ts.isoformat() for c in candles[-n:]],
+            "close": [round(v, 4) for v in closes[-n:]],
+            "vwap": [round(v, 4) for v in vw[-n:]],
+            "ema": [round(v, 4) for v in em[-n:]],
+        }
 
     def end_of_day(self, now: datetime) -> None:
         for bot in self.bots:
@@ -169,6 +186,7 @@ class Engine:
             "equity_curve": self.ledger.equity_curve()[-500:],
             "leaderboard": leaderboard,
             "scanner": scanner,
+            "charts": {sym: self.series[sym] for sym in self.series},
             "open_positions": open_positions,
             "recent_trades": self.ledger.recent(25),
         }

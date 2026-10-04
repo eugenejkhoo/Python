@@ -1,8 +1,9 @@
 """Tiny stdlib HTTP dashboard.
 
-Serves one HTML page and a JSON endpoint. The page polls ``/api/state``
-and renders the profit counter, equity curve, leaderboard, signal scanner,
-open positions and recent trades. No external JavaScript.
+Serves two HTML pages and a JSON endpoint. ``/`` is the desk view (profit
+counter, equity curve, leaderboard, signal scanner, positions, trades) and
+``/city`` is the isometric "bot city" view where each bot is a tower. Both
+poll ``/api/state``. No external JavaScript.
 """
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ from pathlib import Path
 from typing import Callable
 
 HTML_PATH = Path(__file__).with_name("index.html")
+CITY_PATH = Path(__file__).with_name("city.html")
 
 
 class DashboardServer:
@@ -25,6 +27,7 @@ class DashboardServer:
     def _handler(self):
         provider = self.state_provider
         html = HTML_PATH.read_bytes()
+        city = CITY_PATH.read_bytes()
 
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *args):  # quiet
@@ -47,6 +50,8 @@ class DashboardServer:
                     self._send(200, body, "application/json")
                 elif self.path in ("/", "/index.html"):
                     self._send(200, html, "text/html; charset=utf-8")
+                elif self.path in ("/city", "/city.html"):
+                    self._send(200, city, "text/html; charset=utf-8")
                 else:
                     self._send(404, b"not found", "text/plain")
 

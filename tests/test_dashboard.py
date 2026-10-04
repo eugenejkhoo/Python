@@ -11,6 +11,8 @@ def test_dashboard_serves_page_and_state(tmp_path):
         base = f"http://127.0.0.1:{srv.port}"
         html = urllib.request.urlopen(base + "/").read().decode()
         assert "<title>0DTE Bot Desk</title>" in html
+        city = urllib.request.urlopen(base + "/city").read().decode()
+        assert "<title>0DTE Bot City</title>" in city
         data = json.loads(urllib.request.urlopen(base + "/api/state").read())
         assert data["total_pnl"] == 12.5
         try:

@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0DTE Bot City</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --sky-top: #0b0a2a; --sky-bottom: #1d1570; --ground: #141250; --grid: #2b2aa0;
+    --surface: #1a1a19; --border: #333331; --text: #ffffff; --text-2: #c3c2b7; --text-3: #8f8e88;
+    --good: #0ca30c; --critical: #d03b3b; --warn: #fab219; --bull: #3987e5; --bear: #d95926; --accent: #3987e5;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--sky-top); color: var(--text); overflow: hidden;
+    font: 13px/1.4 -apple-system, "Segoe UI", Inter, Roboto, sans-serif; }
+  #stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+  #stage.drag { cursor: grabbing; }
+  .hud { position: absolute; pointer-events: none; }
+  .hud * { pointer-events: auto; }
+  #top { top: 14px; left: 16px; right: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #top h1 { font-size: 16px; margin: 0 8px 0 0; font-weight: 600; letter-spacing: .02em; }
+  .pill { display: inline-block; padding: 3px 9px; border-radius: 999px; border: 1px solid rgba(255,255,255,.22);
+    background: rgba(10,10,40,.55); font-size: 12px; color: var(--text-2); text-decoration: none; backdrop-filter: blur(4px); }
+  .pill.on::before { content: "●"; color: var(--good); margin-right: 5px; }
+  .pill.off::before { content: "●"; color: var(--text-3); margin-right: 5px; }
+  .label { position: absolute; transform: translate(-50%, -100%); padding: 5px 8px; border-radius: 6px;
+    background: rgba(8,8,36,.78); border: 1px solid rgba(255,255,255,.18); white-space: nowrap; font-size: 11px;
+    line-height: 1.3; text-align: center; backdrop-filter: blur(3px); transition: opacity .2s; }
+  .label b { font-size: 12px; display: block; }
+  .labels-compact .label .st, .labels-compact .label br { display: none; }
+  .labels-compact .label { font-size: 10px; padding: 3px 6px; }
+  .label .st { color: var(--text-2); }
+  .label .earn { font-variant-numeric: tabular-nums; }
+  .label .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; }
+  .label.vault { transform: translate(-50%, -100%); border-color: var(--warn); font-size: 12px; cursor: pointer; }
+  .label.vault b { font-size: 22px; font-variant-numeric: tabular-nums; }
+  .label.vault small { color: var(--text-2); font-size: 11px; }
+  #bottom { left: 0; right: 0; bottom: 0; background: linear-gradient(transparent, rgba(6,6,30,.9) 40%); padding: 26px 16px 12px; }
+  #days { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; }
+  .day { flex: 0 0 auto; min-width: 86px; padding: 5px 8px; border-radius: 6px; background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.12); font-size: 11px; color: var(--text-2); }
+  .day b { display: block; font-size: 13px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .day .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; }
+  .day.today { border-color: var(--warn); }
+  #ticker { margin-top: 6px; white-space: nowrap; overflow: hidden; font-size: 12px; color: var(--text-2); }
+  #ticker span { display: inline-block; padding-right: 36px; animation: scroll 60s linear infinite; }
+  #ticker em { font-style: normal; color: var(--text); }
+  @keyframes scroll { from { transform: translateX(100vw); } to { transform: translateX(-100%); } }
+  #panel { position: absolute; top: 56px; right: 16px; width: 330px; max-width: calc(100vw - 32px); background: rgba(10,10,36,.9);
+    border: 1px solid rgba(255,255,255,.2); border-radius: 10px; padding: 12px 14px; display: none; backdrop-filter: blur(6px); }
+  #panel.open { display: block; }
+  #panel h2 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-2); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  td, th { padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,.1); text-align: left; white-space: nowrap; }
+  th { color: var(--text-2); font-weight: 500; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  #err { color: #ff8a8a; }
+  #hint { position: absolute; left: 16px; bottom: 96px; color: var(--text-3); font-size: 11px; }
+  @media (max-width: 640px) { #hint { display: none; } .label.vault b { font-size: 18px; } }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<div id="labels" class="hud"></div>
+<div id="top" class="hud">
+  <h1>0DTE Bot City</h1>
+  <span id="market" class="pill off">market closed</span>
+  <span id="mode" class="pill">paper</span>
+  <span id="clock" class="pill">—</span>
+  <span id="err" class="pill" style="display:none"></span>
+  <a href="/" class="pill" style="margin-left:auto">Desk view →</a>
+</div>
+<div id="panel" class="hud">
+  <h2>Payroll · leaderboard</h2>
+  <table><thead><tr><th>#</th><th>Bot</th><th class="num">Today</th><th class="num">Total</th><th class="num">Win</th></tr></thead><tbody id="board"></tbody></table>
+</div>
+<div id="hint" class="hud">drag to rotate · wheel to zoom · tap the treasury for payroll</div>
+<div id="bottom" class="hud">
+  <div id="days"></div>
+  <div id="ticker"><span>waiting for trades…</span></div>
+</div>
+
+<script>
+// ---------- helpers -----------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+const TZ = {timeZone: "America/New_York"};
+const money = (v) => v == null ? "—" : (v < 0 ? "-" : "+") + "$" + Math.abs(v).toLocaleString(undefined, {maximumFractionDigits: 0});
+const hhmm = (iso) => iso ? new Date(iso).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", ...TZ}) : "";
+const when = (iso, todayIso) => { const d = new Date(iso); const sameDay = todayIso && d.toLocaleDateString([], TZ) === new Date(todayIso).toLocaleDateString([], TZ); return (sameDay ? "" : d.toLocaleDateString([], {weekday: "short", month: "numeric", day: "numeric", ...TZ}) + " ") + hhmm(iso); };
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const C = {};
+for (const k of ["sky-top","sky-bottom","ground","grid","good","critical","warn","bull","bear","accent","text","text-2"]) C[k] = css("--" + k);
+
+// deterministic pseudo-random per tower so windows don't flicker between frames
+function seeded(str) { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return () => { h += 0x6D2B79F5; let t = Math.imul(h ^ (h >>> 15), 1 | h); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+// ---------- camera / projection ----------------------------------------------
+const canvas = $("stage"), ctx = canvas.getContext("2d");
+let W = 0, H = 0, DPR = 1;
+const cam = { theta: 0.6, zoom: 1, auto: true, cx: 0, cy: 0 };
+function resize() { DPR = Math.min(window.devicePixelRatio || 1, 2); W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); }
+window.addEventListener("resize", resize); resize();
+function scale() { return Math.max(Math.min(W / 52, H / 34), W / 36) * cam.zoom; }
+// world: x,z on the ground plane, y up. Rotate about y, then dimetric projection.
+function project(x, y, z) {
+  const c = Math.cos(cam.theta), s = Math.sin(cam.theta);
+  const xr = x * c - z * s, zr = x * s + z * c;
+  const k = scale();
+  return { x: W / 2 + xr * k, y: H * 0.6 + zr * k * 0.5 - y * k * 0.6, depth: zr };
+}
+
+// drag / wheel / tap
+let drag = null, moved = false;
+canvas.addEventListener("pointerdown", (e) => { drag = {x: e.clientX, th: cam.theta}; moved = false; canvas.classList.add("drag"); canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener("pointermove", (e) => { if (!drag) return; const dx = e.clientX - drag.x; if (Math.abs(dx) > 3) moved = true; cam.theta = drag.th - dx * 0.006; cam.auto = false; });
+canvas.addEventListener("pointerup", (e) => { canvas.classList.remove("drag"); if (drag && !moved) tap(e.clientX, e.clientY); drag = null; });
+canvas.addEventListener("wheel", (e) => { e.preventDefault(); cam.zoom = Math.max(0.5, Math.min(2.2, cam.zoom * (e.deltaY > 0 ? 0.92 : 1.08))); }, {passive: false});
+let vaultHit = null;
+function tap(x, y) { if (vaultHit && Math.hypot(x - vaultHit.x, y - vaultHit.y) < vaultHit.r) $("panel").classList.toggle("open"); }
+
+// ---------- scene state ------------------------------------------------------
+let state = null;          // latest /api/state
+let towers = [];           // derived layout
+const charts = {};         // symbol -> offscreen canvas
+const RING_R = 13, PLATFORM_R = 4.2;
+
+function layout(s) {
+  const bots = s.leaderboard || [];
+  const symbols = (s.scanner || []).map(x => x.symbol);
+  const maxAbs = Math.max(50, ...bots.map(b => Math.abs(b.total_pnl)));
+  towers = bots.map((b) => {
+    const si = Math.max(0, symbols.indexOf(b.symbol));
+    const within = bots.filter(x => x.symbol === b.symbol);
+    const wi = within.indexOf(b);
+    const groupAngle = (si / Math.max(symbols.length, 1)) * Math.PI * 2;
+    const spread = 0.42;
+    const a = groupAngle + (wi - (within.length - 1) / 2) * spread;
+    const h = 2.2 + Math.max(b.total_pnl, 0) / maxAbs * 8;
+    const pos = b.position;
+    return { bot: b, x: Math.cos(a) * RING_R, z: Math.sin(a) * RING_R, w: 2.1, h,
+      beam: pos ? (pos.contract.type === "call" ? C.bull : C.bear) : null,
+      losing: b.total_pnl < 0, rng: seeded(b.name) };
+  });
+  towers.forEach(t => { t.windows = []; const r = t.rng;
+    const rows = Math.floor(t.h / 0.55), cols = 3;
+    for (let f = 0; f < 2; f++) for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) t.windows.push(r() < 0.72); });
+}
+
+// ---------- chart billboards ---------------------------------------------------
+function drawChart(sym, ch, scanner) {
+  let cv = charts[sym]; if (!cv) { cv = charts[sym] = document.createElement("canvas"); cv.width = 520; cv.height = 240; }
+  const g = cv.getContext("2d"), w = cv.width, h = cv.height;
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = "rgba(6,6,28,.92)"; g.fillRect(0, 0, w, h);
+  g.strokeStyle = "rgba(255,255,255,.18)"; g.lineWidth = 2; g.strokeRect(1, 1, w - 2, h - 2);
+  g.fillStyle = C.text; g.font = "bold 22px sans-serif"; g.textBaseline = "top";
+  const last = ch && ch.ts && ch.ts.length ? ch.ts[ch.ts.length - 1] : null;
+  g.fillText(`${sym} · 1-MIN${last ? " · " + hhmm(last) : ""}`, 14, 12);
+  g.font = "16px sans-serif"; g.textAlign = "right";
+  g.fillStyle = C.bear; g.fillText("VWAP", w - 90, 16); g.fillStyle = "#b39ddb"; g.fillText("EMA50", w - 14, 16);
+  g.textAlign = "left";
+  if (!ch || !ch.close || ch.close.length < 2) { g.fillStyle = C["text-2"]; g.fillText("waiting for bars…", 14, h / 2); return; }
+  const all = ch.close.concat(ch.vwap, ch.ema);
+  let lo = Math.min(...all), hi = Math.max(...all); if (hi === lo) hi = lo + 1; const pad = (hi - lo) * .1; lo -= pad; hi += pad;
+  const X = (i) => 14 + i / (ch.close.length - 1) * (w - 100), Y = (v) => 48 + (1 - (v - lo) / (hi - lo)) * (h - 70);
+  const line = (arr, color, width) => { g.strokeStyle = color; g.lineWidth = width; g.lineJoin = "round"; g.beginPath();
+    arr.forEach((v, i) => i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v))); g.stroke(); };
+  line(ch.vwap, C.bear, 3); line(ch.ema, "#b39ddb", 3); line(ch.close, "#ffffff", 3);
+  const lastV = ch.close[ch.close.length - 1];
+  g.fillStyle = "#fff"; g.beginPath(); g.arc(X(ch.close.length - 1), Y(lastV), 5, 0, Math.PI * 2); g.fill();
+  g.fillStyle = C.text; g.font = "bold 18px sans-serif"; g.fillText(lastV.toFixed(2), w - 82, Y(lastV) - 9);
+  if (scanner && scanner.or_high != null) {
+    g.setLineDash([6, 6]); g.strokeStyle = "rgba(250,178,25,.7)"; g.lineWidth = 1.5;
+    for (const v of [scanner.or_high, scanner.or_low]) if (v > lo && v < hi) { g.beginPath(); g.moveTo(14, Y(v)); g.lineTo(w - 86, Y(v)); g.stroke(); }
+    g.setLineDash([]);
+  }
+  if (scanner && scanner.choppy) { g.fillStyle = C.warn; g.font = "bold 14px sans-serif"; g.fillText("⚠ CHOP", 14, h - 24); }
+  else if (scanner && scanner.triggers && scanner.triggers.length) { g.fillStyle = C.good; g.font = "bold 14px sans-serif"; g.fillText("⚡ " + scanner.triggers.join(", "), 14, h - 24); }
+}
+
+// ---------- rendering -----------------------------------------------------------
+function drawGround() {
+  const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, C["sky-top"]); sky.addColorStop(1, C["sky-bottom"]);
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  // stars
+  const r = seeded("stars"); ctx.fillStyle = "rgba(255,255,255,.7)";
+  for (let i = 0; i < 90; i++) { const x = r() * W, y = r() * H * 0.45; ctx.fillRect(x, y, r() < .3 ? 2 : 1, 1); }
+  // ground grid
+  ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.globalAlpha = 0.55;
+  const N = 26, S = 2.2;
+  for (let i = -N; i <= N; i++) {
+    let p = project(i * S, 0, -N * S), q = project(i * S, 0, N * S); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+    p = project(-N * S, 0, i * S); q = project(N * S, 0, i * S); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  // ring road
+  ringPath(RING_R, 0); ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 2; ctx.stroke();
+  ringPath(RING_R + 3.2, 0); ctx.strokeStyle = "rgba(120,140,255,.35)"; ctx.lineWidth = 1; ctx.stroke();
+  // central platform
+  ringPath(PLATFORM_R, 0); ctx.fillStyle = "rgba(20,20,90,.9)"; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 2; ctx.stroke();
+  // lamp posts around the platform
+  for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; const b = project(Math.cos(a) * (PLATFORM_R + .6), 0, Math.sin(a) * (PLATFORM_R + .6)), t = project(Math.cos(a) * (PLATFORM_R + .6), 0.9, Math.sin(a) * (PLATFORM_R + .6));
+    ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(t.x, t.y); ctx.stroke();
+    ctx.fillStyle = "#9fe3ff"; ctx.beginPath(); ctx.arc(t.x, t.y, 2.2, 0, Math.PI * 2); ctx.fill(); }
+}
+function ringPath(r, y) { ctx.beginPath(); for (let i = 0; i <= 72; i++) { const a = i / 72 * Math.PI * 2; const p = project(Math.cos(a) * r, y, Math.sin(a) * r); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); } ctx.closePath(); }
+
+function drawTower(t) {
+  const { x, z, w, h } = t, hw = w / 2;
+  const c = Math.cos(cam.theta), s = Math.sin(cam.theta);
+  // Which two side faces are visible depends on rotation; compute the four base corners and pick by depth.
+  const corners = [[-hw, -hw], [hw, -hw], [hw, hw], [-hw, hw]].map(([dx, dz]) => ({ dx, dz, b: project(x + dx, 0, z + dz), t: project(x + dx, h, z + dz) }));
+  const order = [...corners].sort((a, b) => b.b.depth - a.b.depth); // nearest last
+  const near = order[3], left = corners[(corners.indexOf(near) + 3) % 4], right = corners[(corners.indexOf(near) + 1) % 4];
+  const base = t.losing ? "#2a1230" : "#141545", edge = t.losing ? "#6b2a52" : "#3b3d8f";
+  const face = (a, b, shade) => { ctx.fillStyle = shade; ctx.beginPath(); ctx.moveTo(a.b.x, a.b.y); ctx.lineTo(b.b.x, b.b.y); ctx.lineTo(b.t.x, b.t.y); ctx.lineTo(a.t.x, a.t.y); ctx.closePath(); ctx.fill(); ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke(); };
+  face(left, near, t.losing ? "#1e0d26" : "#0f1038"); face(near, right, base);
+  // windows on both visible faces
+  const rows = Math.floor(h / 0.55), cols = 3; let k = 0;
+  const lit = t.losing ? "rgba(255,120,150,.85)" : "rgba(255,226,150,.9)";
+  for (const [a, b] of [[left, near], [near, right]]) for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++, k++) {
+    if (!t.windows[k]) continue;
+    const u0 = (j + .25) / cols, u1 = (j + .75) / cols, v0 = (i + .25) / rows, v1 = (i + .7) / rows;
+    const P = (u, v) => ({ x: a.b.x + (b.b.x - a.b.x) * u + (a.t.x - a.b.x) * v, y: a.b.y + (b.b.y - a.b.y) * u + (a.t.y - a.b.y) * v });
+    const p0 = P(u0, v0), p1 = P(u1, v0), p2 = P(u1, v1), p3 = P(u0, v1);
+    ctx.fillStyle = lit; ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.closePath(); ctx.fill();
+  }
+  // roof
+  ctx.fillStyle = t.losing ? "#4a1f45" : "#2b2d7a"; ctx.beginPath(); corners.forEach((cn, i) => i ? ctx.lineTo(cn.t.x, cn.t.y) : ctx.moveTo(cn.t.x, cn.t.y)); ctx.closePath(); ctx.fill(); ctx.strokeStyle = edge; ctx.stroke();
+  // light beam while holding a position
+  if (t.beam) {
+    const top = project(x, h, z), sky = project(x, h + 14, z);
+    const g = ctx.createLinearGradient(top.x, top.y, sky.x, sky.y); g.addColorStop(0, t.beam); g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = 0.75; ctx.strokeStyle = g; ctx.lineWidth = scale() * 0.9; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(top.x, top.y); ctx.lineTo(sky.x, sky.y); ctx.stroke();
+    ctx.lineWidth = scale() * 0.25; ctx.globalAlpha = 1; ctx.strokeStyle = "rgba(255,255,255,.9)"; ctx.beginPath(); ctx.moveTo(top.x, top.y); ctx.lineTo(sky.x, sky.y); ctx.stroke();
+    ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
+    // halo ring on the roof
+    ctx.strokeStyle = t.beam; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(top.x, top.y, scale() * 1.4, scale() * 0.7, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  t.labelAt = project(x, h + 0.6, z);
+}
+
+function drawBillboard(sym, idx, count) {
+  const cv = charts[sym]; if (!cv) return null;
+  const a = (idx / count) * Math.PI * 2, r = RING_R + 4.5;
+  const cx = Math.cos(a) * r, cz = Math.sin(a) * r, half = 4.0, hgt = 3.4;
+  // tangent direction so the board faces the center
+  const tx = -Math.sin(a), tz = Math.cos(a);
+  const A = project(cx - tx * half, 0.4, cz - tz * half), B = project(cx + tx * half, 0.4, cz + tz * half), At = project(cx - tx * half, 0.4 + hgt, cz - tz * half);
+  // only draw boards on the far side so they don't cover the towers
+  const depth = project(cx, 0, cz).depth; if (depth > 2) return { depth, draw: () => {} };
+  return { depth, draw: () => {
+    // affine map: canvas (0,0)->A, (w,0)->B, (0,h)->At
+    // affine map: image (0,0) -> At (top-left), (w,0) -> Bt, (0,h) -> A (bottom-left)
+    const Bt = { x: At.x + (B.x - A.x), y: At.y + (B.y - A.y) };
+    const m11 = (Bt.x - At.x) / cv.width, m12 = (Bt.y - At.y) / cv.width, m21 = (A.x - At.x) / cv.height, m22 = (A.y - At.y) / cv.height;
+    ctx.save(); ctx.setTransform(DPR * m11, DPR * m12, DPR * m21, DPR * m22, DPR * At.x, DPR * At.y);
+    ctx.drawImage(cv, 0, 0);
+    ctx.restore(); ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    // posts
+    for (const p of [[A, At], [B, project(cx + tx * half, 0.4 + hgt, cz + tz * half)]]) { ctx.strokeStyle = "rgba(255,255,255,.4)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(p[0].x, p[0].y + 0.4 * scale() * .62); ctx.lineTo(p[1].x, p[1].y); ctx.stroke(); }
+  }};
+}
+
+function drawVault(s) {
+  const base = project(0, 0, 0), top = project(0, 2.2, 0), k = scale();
+  const rx = k * 2.4, ry = k * 1.2;
+  // cylinder body
+  const g = ctx.createLinearGradient(base.x - rx, 0, base.x + rx, 0); g.addColorStop(0, "#7a4d12"); g.addColorStop(.5, "#ffd27a"); g.addColorStop(1, "#7a4d12");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(base.x - rx, base.y); ctx.lineTo(base.x - rx, top.y); ctx.lineTo(base.x + rx, top.y); ctx.lineTo(base.x + rx, base.y); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(base.x, base.y, rx, ry, 0, 0, Math.PI); ctx.fill();
+  // ribs
+  ctx.strokeStyle = "rgba(60,30,0,.5)"; ctx.lineWidth = 2; for (let i = -3; i <= 3; i++) { const x = base.x + i * rx / 3.5; ctx.beginPath(); ctx.moveTo(x, top.y); ctx.lineTo(x, base.y + ry * Math.sqrt(Math.max(0, 1 - (i / 3.5) ** 2))); ctx.stroke(); }
+  // glowing dome
+  const dome = ctx.createRadialGradient(top.x, top.y - ry * .6, 2, top.x, top.y - ry * .3, rx * 1.3);
+  dome.addColorStop(0, "#ffffff"); dome.addColorStop(.45, "#ffe9b0"); dome.addColorStop(1, "rgba(255,200,90,0)");
+  ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = dome; ctx.beginPath(); ctx.arc(top.x, top.y - ry * .3, rx * 1.3, 0, Math.PI * 2); ctx.fill(); ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "#fff6dc"; ctx.beginPath(); ctx.ellipse(top.x, top.y, rx, ry, 0, Math.PI, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#f3d58a"; ctx.beginPath(); ctx.ellipse(top.x, top.y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+  vaultHit = { x: top.x, y: top.y - ry * .3, r: rx * 1.1 };
+  return project(0, 4.2, 0);
+}
+
+function frame(ts) {
+  if (cam.auto) cam.theta += 0.0012;
+  drawGround();
+  let items = [];
+  const symbols = state ? (state.scanner || []).map(x => x.symbol) : [];
+  symbols.forEach((sym, i) => { const b = drawBillboard(sym, i, symbols.length); if (b) items.push(b); });
+  towers.forEach(t => items.push({ depth: project(t.x, 0, t.z).depth, draw: () => drawTower(t) }));
+  let vaultTop = null;
+  items.push({ depth: 0, draw: () => { vaultTop = drawVault(state); } });
+  items.sort((a, b) => a.depth - b.depth).forEach(it => it.draw());
+  placeLabels(vaultTop);
+  requestAnimationFrame(frame);
+}
+
+// ---------- labels & HUD --------------------------------------------------------
+const labelEls = new Map();
+function labelFor(key, cls) { let el = labelEls.get(key); if (!el) { el = document.createElement("div"); el.className = "label " + (cls || ""); $("labels").appendChild(el); labelEls.set(key, el); } return el; }
+function placeLabels(vaultTop) {
+  $("labels").classList.toggle("labels-compact", scale() < 14);
+  for (const t of towers) {
+    const el = labelFor(t.bot.name); const p = t.labelAt; if (!p) continue;
+    el.style.left = p.x + "px"; el.style.top = p.y + "px"; el.style.opacity = p.depth > 6 ? .55 : 1;
+  }
+  if (vaultTop) { const el = labelFor("vault", "vault"); el.style.left = vaultTop.x + "px"; el.style.top = vaultTop.y + "px"; }
+}
+function labelText(b) {
+  const pos = b.position; let st, dot;
+  if (pos) { const pr = pos.pct_return != null ? (pos.pct_return * 100).toFixed(0) + "%" : ""; const call = pos.contract.type === "call";
+    st = `${call ? "▲ CALL" : "▼ PUT"} ${pr}`; dot = call ? C.bull : C.bear; }
+  else if (b.locked) { st = /profit/.test(b.lock_reason) ? "goal hit · off duty" : "off duty · " + b.lock_reason; dot = C.warn; }
+  else { st = "on shift · scanning"; dot = C.good; }
+  return `<b>${esc(b.name)}</b><span class="st"><span class="dot" style="background:${dot}"></span>${esc(st)}</span><br><span class="earn">earned ${money(b.total_pnl)}</span>`;
+}
+function render(s) {
+  state = s;
+  if (s.error) { $("err").style.display = ""; $("err").textContent = s.error; return; }
+  $("err").style.display = "none";
+  $("market").textContent = s.market_open ? "market open" : "market closed"; $("market").className = "pill " + (s.market_open ? "on" : "off");
+  $("mode").textContent = s.mode + " · " + s.feed;
+  $("clock").textContent = new Date(s.updated).toLocaleString([], {...TZ, timeZoneName: "short"});
+  layout(s);
+  for (const b of s.leaderboard) labelFor(b.name).innerHTML = labelText(b);
+  const onShift = s.leaderboard.filter(b => !b.locked).length;
+  labelFor("vault", "vault").innerHTML = `<small>TREASURY · ${s.stats.days} TRADING DAY${s.stats.days === 1 ? "" : "S"}</small><b style="color:${s.total_pnl >= 0 ? "#9cf59c" : "#ff9a9a"}">${money(s.total_pnl)}</b><small>${onShift} of ${s.leaderboard.length} bots on shift · tap for payroll</small>`;
+  for (const sc of s.scanner) drawChart(sc.symbol, (s.charts || {})[sc.symbol], sc);
+  // day strip
+  const days = (s.pnl_by_day || []).slice(-14);
+  $("days").innerHTML = days.map(([d, v], i) => `<div class="day ${i === days.length - 1 ? "today" : ""}">${new Date(d + "T12:00:00").toLocaleDateString([], {weekday: "short", month: "numeric", day: "numeric"})}<b><span class="dot" style="background:${v >= 0 ? C.good : C.critical}"></span>${money(v)}</b></div>`).join("") || `<div class="day">no closed trades yet</div>`;
+  // ticker
+  const rt = (s.recent_trades || []).slice(0, 12);
+  if (rt.length) $("ticker").innerHTML = `<span>${rt.map(t => `<em>${esc(t.bot)}</em> ${when(t.exit_ts, s.updated)} ${t.option_type === "C" ? "▲" : "▼"} ${esc(t.contract)} sold ${money(t.pnl)} · ${esc(t.exit_reason)}`).join(" &nbsp;◆&nbsp; ")}</span>`;
+  // payroll panel
+  $("board").innerHTML = s.leaderboard.map((b, i) => `<tr><td>${i + 1}</td><td>${esc(b.name)}</td><td class="num">${money(b.day_pnl)}</td><td class="num">${money(b.total_pnl)}</td><td class="num">${Math.round(b.win_rate * 100)}%</td></tr>`).join("");
+}
+async function poll() { try { const r = await fetch("/api/state", {cache: "no-store"}); render(await r.json()); } catch (e) { $("err").style.display = ""; $("err").textContent = "dashboard: " + e; } setTimeout(poll, 2000); }
+poll(); requestAnimationFrame(frame);
+</script>
+</body>
+</html>
