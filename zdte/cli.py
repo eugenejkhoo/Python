@@ -52,7 +52,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         while day.weekday() >= 5:
             day -= timedelta(days=1)
         clock = SimClock(session_open(day), end=session_close(day) + timedelta(minutes=1),
-                         real_seconds_per_step=60.0 / args.speed if args.speed else 0.0)
+                         real_seconds_per_step=1.0 / args.speed if args.speed else 0.0)
 
     engine = Engine(cfg, clock=clock)
     server = None
